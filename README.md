@@ -1,179 +1,185 @@
-# Churn Prediction Project
+# 🚀 Telecom Customer Churn Prediction
 
-This project demonstrates a complete ML pipeline with MLflow for experiment tracking and a local Docker registry for model versioning.
+A complete machine learning pipeline for predicting telecom customer churn using Airflow, MLflow, and Docker.
 
-## Prerequisites
+## 📋 Prerequisites
 
-- Docker Desktop installed and running
-- Terraform installed
-- Ports 5002 and 5003 available on your machine
+Before you begin, ensure you have the following installed:
 
-## Quick Start
+- **Docker** - [Install Docker](https://docs.docker.com/get-docker/)
+- **Terraform** - [Install Terraform](https://developer.hashicorp.com/terraform/downloads)
+- **Kaggle API credentials** - [Get your Kaggle API key](https://github.com/Kaggle/kaggle-api#api-credentials)
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd churn
-   ```
+## 🚀 Quick Start
 
-2. **Set up Kaggle credentials**
-   Create a `terraform.tfvars` file at project root with the following contents:
-   ```terraform
-   # Kaggle credentials for dataset download
-   kaggle_username = "hirekk"
-   kaggle_key      = "91df20de33eb8fc15f8492a3a2ed8cde"
-   ```
-
-3. **Create required directories**
-   ```bash
-   mkdir -p mlflow/runs
-   touch mlflow/mlflow.db
-   ```
-
-3. **Build custom Airflow image**
-   ```bash
-   # Build the custom Airflow image with project dependencies
-   docker build -f Dockerfile.airflow -t churn-airflow:latest .
-   ```
-
-4. **Deploy infrastructure**
-   ```bash
-   terraform init
-   terraform apply
-   ```
-
-4. **Access services**
-   - **MLflow UI**: http://localhost:5002
-   - **Docker Registry**: http://localhost:5003
-   - **Airflow UI**: http://localhost:8081
-
-5. **Airflow credentials**
-
-   - **Username**: `admin`
-   - **Password**: `MNTR38XczcNUC5tt`
-
-## What's Included
-
-### MLflow Server (Port 5002)
-- Experiment tracking and model management
-- SQLite backend for simplicity
-- Custom runs directory for artifacts
-- Accessible at http://localhost:5002
-
-### Docker Registry (Port 5003)
-- Local image storage and versioning
-- HTTP access (no TLS for local development)
-- Delete enabled for development
-- Accessible at http://localhost:5003
-
-### Airflow (Port 8081)
-- Workflow orchestration and scheduling
-- Standalone mode with automatic admin user creation
-- SQLite backend for simplicity
-- Accessible at http://localhost:8081
-
-## Updating Dependencies
-
-When you change project dependencies (in `pyproject.toml` or `requirements.txt`):
-
-1. **Rebuild the custom Airflow image**
-   ```bash
-   docker build -f Dockerfile.airflow -t churn-airflow:latest .
-   ```
-
-2. **Redeploy infrastructure**
-   ```bash
-   terraform apply
-   ```
-
-**Note**: The custom Airflow image includes all project dependencies, so you must rebuild it when dependencies change.
-
-## Usage Examples
-
-### Using the Docker Registry
+### 1. Clone and Setup
 
 ```bash
-# Build and tag your ML model
-docker build -t churn-model:v1.0 .
-
-# Push to local registry
-docker tag churn-model:v1.0 localhost:5003/churn-model:v1.0
-docker push localhost:5003/churn-model:v1.0
-
-# Pull from local registry
-docker pull localhost:5003/churn-model:v1.0
-
-# List images in registry
-curl http://localhost:5003/v2/_catalog
+git clone git@github.com:hirekk/churn.git
+cd churn
 ```
 
-### Using MLflow
+### 2. Configure Kaggle Credentials
+
+Create a `terraform.tfvars` file with your Kaggle credentials:
 
 ```bash
-# Access the web UI
-open http://localhost:5002
-
-# Or use the Python API
-import mlflow
-mlflow.set_tracking_uri("http://localhost:5002")
+# Create terraform.tfvars
+cat > terraform.tfvars << EOF
+kaggle_username = "your_kaggle_username"
+kaggle_key = "your_kaggle_api_key"
+EOF
 ```
 
-## Project Structure
+### 3. Deploy Infrastructure
+
+```bash
+# Initialize Terraform
+terraform init
+
+# Deploy all services
+terraform apply -auto-approve
+```
+
+This will start:
+- **Airflow** server on port 8081
+- **MLflow** tracking server on port 5002
+- **Local Docker registry** on port 5003
+
+### 4. Get Airflow Admin Password
+
+```bash
+# Extract admin password from container logs
+docker logs airflow-server | grep "Admin user" | tail -1
+```
+
+### 5. Access the Services
+
+- **Airflow UI**: http://localhost:8081
+  - Username: `admin`
+  - Password: (from step 4)
+
+- **MLflow UI**: http://localhost:5002
+
+### 6. Run the Training Pipeline
+
+1. **Open Airflow UI** in your browser
+2. **Go to DAGs** → find `model_training`
+3. **Click "Play" button** to trigger the pipeline
+4. **Monitor execution** in the DAG view
+
+The pipeline will:
+- Download telecom customer churn dataset from Kaggle
+- Apply feature engineering
+- Train a Random Forest model
+- Save the model to `models/random_forest/`
+- Log everything to MLflow
+
+### 7. View Results
+
+- **Check MLflow UI** for experiment tracking and model artifacts
+- **Verify model files** in `models/random_forest/` directory
+- **Review training logs** in Airflow task logs
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Kaggle Data  │    │   Airflow DAG   │    │   MLflow UI     │
+│   (Download)   │───▶│   (Training)    │───▶│   (Tracking)    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Local Data   │    │   Trained Model │    │   Model Files   │
+│   (data/)      │    │   (models/)     │    │   (Deployment)  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+## 📁 Project Structure
 
 ```
 churn/
-├── main.tf                 # Terraform infrastructure
-├── mlflow/                 # MLflow data directory
-│   ├── runs/              # Experiment runs and artifacts
-│   └── mlflow.db          # SQLite database
-├── dags/                   # Airflow DAGs (if using)
-├── data/                   # Your dataset files
-└── src/                    # Source code
+├── airflow/                 # Airflow configuration
+│   ├── dags/              # DAG definitions
+│   ├── logs/              # Airflow logs
+│   └── airflow.db         # Airflow database
+├── data/                   # Data storage
+│   ├── raw/               # Raw downloaded data
+│   ├── interim/           # Intermediate processed data
+│   └── processed/         # ML-ready features
+├── models/                 # Trained models
+│   └── random_forest/     # Random Forest model files
+├── mlflow/                 # MLflow artifacts
+│   ├── mlruns/            # Experiment runs
+│   └── mlflow.db          # MLflow database
+├── src/                    # Source code
+│   └── churn/             # Main package
+├── main.tf                 # Terraform configuration
+└── README.md               # This file
 ```
 
-## Troubleshooting
+## 🔧 Configuration
 
-### Port Conflicts
-- **Port 5000**: Reserved by Apple AirPlay on macOS
-- **Port 5001**: Free (unused)
-- **Port 5002**: MLflow (safe to use)
-- **Port 5003**: Docker Registry (safe to use)
-- **Port 8081**: Airflow (safe to use)
+### Environment Variables
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| Airflow | 8081 | Web UI and API |
+| MLflow | 5002 | Experiment tracking |
+| Registry | 5003 | Docker image storage |
+
+### Volume Mounts
+
+| Container Path | Host Path | Purpose |
+|----------------|-----------|---------|
+| `/opt/airflow/dags` | `./airflow/dags` | DAG definitions |
+| `/opt/airflow/data` | `./data` | Data storage |
+| `/opt/airflow/models` | `./models` | Model storage |
+| `/mlflow/mlruns` | `./mlflow/mlruns` | MLflow artifacts |
+
+## 🚨 Troubleshooting
 
 ### Common Issues
-1. **"Connection refused"**: Make sure Docker is running
-2. **"Port already in use"**: Check if ports 5002/5003 are free
-3. **"Permission denied"**: Ensure Docker has access to your directories
 
-### Reset Everything
+1. **Port conflicts**: Ensure ports 8081, 5002, 5003 are available
+2. **Kaggle credentials**: Verify your API key is correct
+3. **Docker not running**: Start Docker before running Terraform
+4. **Permission errors**: Ensure Docker has access to your project directory
+
+### Debug Commands
+
 ```bash
-# Stop and remove containers
-terraform destroy
+# Check container status
+docker ps
 
-# Clean up data (optional)
-rm -rf mlflow/runs/* mlflow/mlflow.db
+# View container logs
+docker logs airflow-server
+docker logs mlflow-server
+
+# Restart services
+terraform destroy -auto-approve
+terraform apply -auto-approve
 ```
 
-## Development Workflow
+## 📚 Next Steps
 
-1. **Train models** and log experiments with MLflow
-2. **Package models** as Docker images
-3. **Push images** to local registry
-4. **Track versions** in MLflow experiments
-5. **Deploy models** from registry when ready
+- **API Deployment**: Deploy the prediction API (coming soon)
+- **Model Monitoring**: Set up model performance monitoring
+- **CI/CD Pipeline**: Automate model retraining
+- **Production Deployment**: Scale to production environment
 
-## Sharing with Team
+## 🤝 Contributing
 
-1. **Share the entire repository** (including `main.tf`)
-2. **Team members run** `terraform apply` locally
-3. **Everyone gets** the same infrastructure setup
-4. **Use consistent image naming** conventions
-5. **Document model versions** in MLflow
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
-## Next Steps
+## 📄 License
 
-- Add your ML training code to `src/`
-- Create Dockerfiles for your models
-- Set up CI/CD pipelines
-- Add monitoring and logging
-- Scale to production infrastructure
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+**Happy Churn Prediction! 🎯**

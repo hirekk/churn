@@ -1,6 +1,9 @@
 """Airflow DAG for telecom customer churn data extraction."""
 
+import json
 from pathlib import Path
+
+import mlflow.sklearn
 
 from churn.data import DataFile
 from churn.data import DatasetSize
@@ -8,6 +11,7 @@ from churn.data import DatasetSplit
 from churn.data.download import download_dataset
 from churn.data.feature_engineering import make_dataset
 from churn.data.load import load_data
+from churn.data.load import split_data
 from churn.data.preprocess import extract_small_sample
 from churn.data.preprocess import remove_customer_category_joined
 from churn.logger import DEFAULT_LOGGER
@@ -16,7 +20,7 @@ from churn.model.train import train_random_forest
 import mlflow
 
 from airflow import DAG
-from airflow.sdk import task
+from airflow.decorators import task
 
 DATA_DIR = Path("data")
 DATA_RAW_DIR = DATA_DIR / "raw"
@@ -63,13 +67,28 @@ def make_features() -> None:
 
 
 @task
+def split_dataset() -> None:
+    """Split dataset into training and test sets."""
+    split_data(
+        input_filepath=DATA_PROCESSED_DIR / f"{DataFile.CUSTOMER_CHURN.value}.csv",
+        output_dirpath=DATA_PROCESSED_DIR,
+        test_size=0.2,
+        stratify_by="target",
+        random_state=42,
+    )
+
+
+@task
 def train_model(
     experiment_id: str = "churn_prediction",
     random_state: int = 42,
 ) -> None:
     """Train churn prediction model with MLflow tracking."""
-    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_tracking_uri("http://mlflow-server:5000")
     mlflow.set_experiment(experiment_id)
+
+    # Enable autologging for scikit-learn
+    mlflow.sklearn.autolog()
 
     with mlflow.start_run() as run:
         DEFAULT_LOGGER.info(f"Starting MLflow run {run.info}")
@@ -84,13 +103,11 @@ def train_model(
         mlflow.log_param("n_features", len(X.columns))
         mlflow.log_dict(y.value_counts().to_dict(), "target_distribution.json")
 
-        # Train model
+        # Train model (autologging will capture all parameters and metrics)
         model = train_random_forest(X, y, random_state=random_state)
-        mlflow.log_model_params(model.get_params(), "random_forest_params.json")
 
-        # Evaluate model
+        # Evaluate model (autologging will capture evaluation metrics)
         metrics = evaluate_model(model, X, y)
-        mlflow.log_dict(metrics, "metrics.json")
 
         # Save model locally for Docker deployment
         models_dir = Path("models")
@@ -100,15 +117,11 @@ def train_model(
         model_dirpath.mkdir(exist_ok=True)
 
         # Save model using MLflow
-        import mlflow.sklearn
-
         mlflow.sklearn.save_model(model, model_dirpath)
 
-        # Save feature names for preprocessing
-        import json
-
         feature_names = list(X.columns)
-        with open(model_dirpath / "feature_names.json", "w", encoding="utf-8") as f:
+        feature_names_filepath = model_dirpath / "feature_names.json"
+        with feature_names_filepath.open(mode="w", encoding="utf-8") as f:
             json.dump(feature_names, f)
 
         DEFAULT_LOGGER.info(f"Model saved locally to {model_dirpath}")
@@ -122,4 +135,4 @@ with DAG(
     catchup=False,
     tags=["churn", "model-training"],
 ) as dag:
-    _ = extract_dataset() >> make_features() >> train_model()
+    _ = extract_dataset() >> make_features() >> split_dataset() >> train_model()
