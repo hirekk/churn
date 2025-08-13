@@ -35,6 +35,8 @@ This starts:
 
 ### 2. Get Airflow Admin Password
 
+> ⚠️ **Note**: The Airflow server may take a minute to become fully responsive while it initializes the database and creates the admin user. Wait until you see "Admin user" logs before proceeding.
+
 ```bash
 docker logs airflow-server | grep "Admin user" | tail -1
 ```
@@ -104,7 +106,7 @@ churn/
 4. **API deployment before training**: Ensure training completes and you have a valid RUN_ID
 
 
-## 📚 Next Steps
+## 🧭 Next Steps
 
 - **Model Monitoring**: Set up service monitoring
 - **CI/CD Pipeline**: Automate model retraining
