@@ -114,7 +114,7 @@ class CustomerData(BaseModel):
 class PredictionResponse(BaseModel):
     """Prediction response schema."""
 
-    customer_id: str = Field(..., alias="Customer ID", description="Customer ID")
+    customer_id: str = Field(..., description="Customer ID")
     churn_probability: float = Field(..., ge=0, le=1, description="Probability of churn")
     churn_prediction: bool = Field(..., description="Churn prediction (True/False)")
     confidence: float = Field(..., ge=0, le=1, description="Prediction confidence")

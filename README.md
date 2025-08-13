@@ -1,4 +1,4 @@
-# 🚀 Telecom Customer Churn Prediction
+# Telecom Customer Churn Prediction
 
 A complete machine learning pipeline for predicting telecom customer churn using Airflow, MLflow, and Docker.
 
@@ -14,7 +14,7 @@ A complete machine learning pipeline for predicting telecom customer churn using
 
 ```bash
 # Clone and setup
-git clone git@github.com:hirekk/churn.git
+git clone https://github.com/hirekk/churn.git
 cd churn
 
 # Configure Kaggle credentials
@@ -41,7 +41,7 @@ docker logs airflow-server | grep "Admin user" | tail -1
 
 ### 3. Access Services
 
-- **Airflow UI**: http://localhost:8081 (admin / password from step 2)
+- **Airflow UI**: http://localhost:8081 (Username `admin` / password from step 2)
 - **MLflow UI**: http://localhost:5002
 
 ### 4. Train Model
@@ -49,12 +49,13 @@ docker logs airflow-server | grep "Admin user" | tail -1
 1. **Open Airflow UI** → find `model_training` DAG
 2. **Click "Play" button** to trigger training
 3. **Monitor execution** in DAG view
-4. **Note the Run ID** from the successful training run
+4. **Note the corresponding Run ID in the MLflow console** from the successful training run
 
 The pipeline will:
 - Download telecom customer churn dataset from Kaggle
 - Apply feature engineering
 - Train a Random Forest model with preprocessing pipeline
+- Test and evaluate the model on a hold-out dataset.
 - Save the model to `models/random_forest/{run_id}`
 - Log everything to MLflow
 
@@ -66,26 +67,11 @@ The pipeline will:
 # Deploy API with specific trained model
 make deploy RUN_ID="your_run_id_here"
 
-# Check health
+# Check service health
 make check
 
 # Test predictions
 make test
-```
-
-## 🏗️ Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Kaggle Data  │    │   Airflow DAG   │    │   MLflow UI     │
-│   (Download)   │───▶│   (Training)    │───▶│   (Tracking)    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Local Data   │    │   Trained Model │    │   Model Files   │
-│   (data/)      │    │   (models/)     │    │   (Deployment)  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ## 📁 Project Structure
@@ -107,73 +93,6 @@ churn/
 └── main.tf                 # Terraform configuration
 ```
 
-## 🚀 Deploy Prediction API
-
-### Option 1: Using Makefile (Recommended)
-
-```bash
-# Deploy API with specific model
-make deploy RUN_ID="your_run_id_here"
-
-# Check health
-make check
-
-# Test predictions
-make test
-
-# Stop service
-make down
-
-# Clean up everything
-make clean
-```
-
-### Option 2: Manual Docker Commands
-
-```bash
-# Build and run with specific model
-docker build --build-arg RUN_ID="your_run_id" -f Dockerfile.api -t churn-api:latest .
-docker run -d --name churn-api -p 8000:8000 churn-api:latest
-
-# Test
-curl http://localhost:8000/health
-curl http://localhost:8000/docs
-```
-
-## 🧪 API Testing
-
-### Health Check
-```bash
-curl http://localhost:8000/health
-```
-
-### Make Prediction
-```bash
-curl -X POST "http://localhost:8000/predict" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "age": 45,
-    "gender": "Male",
-    "married": "Yes",
-    "tenure_in_months": 24,
-    "monthly_charge": 89.99
-  }'
-```
-
-**Note**: This is a minimal example. The full API expects all customer fields. See the Makefile test target for a complete example.
-
-### API Documentation
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-## 🔧 Configuration
-
-| Service | Port | Purpose |
-|---------|------|---------|
-| Airflow | 8081 | Web UI and API |
-| MLflow | 5002 | Experiment tracking |
-| Registry | 5003 | Docker image storage |
-| API | 8000 | Prediction endpoint |
 
 ## 🚨 Troubleshooting
 
@@ -184,42 +103,11 @@ curl -X POST "http://localhost:8000/predict" \
 3. **Docker not running**: Start Docker before running Terraform
 4. **API deployment before training**: Ensure training completes and you have a valid RUN_ID
 
-### Debug Commands
-
-```bash
-# Check container status
-docker ps
-
-# View logs
-docker logs airflow-server
-docker logs churn-api
-
-# Check model files
-ls -la models/random_forest/
-
-# Restart services
-terraform destroy -auto-approve
-terraform apply -auto-approve
-```
-
-## 🔄 Model Updates
-
-To deploy a new model version:
-
-1. **Train new model** using Airflow
-2. **Get the new Run ID** from MLflow or Airflow logs
-3. **Redeploy API** with new model:
-   ```bash
-   make clean
-   make deploy RUN_ID="new_run_id"
-   ```
 
 ## 📚 Next Steps
 
-- **Model Monitoring**: Set up performance monitoring
+- **Model Monitoring**: Set up service monitoring
 - **CI/CD Pipeline**: Automate model retraining
 - **Production Deployment**: Scale to production environment
 
 ---
-
-**Happy Churn Prediction! 🎯**
