@@ -5,12 +5,6 @@ target-version = "py312"
 
 [lint]
 select = ["ALL"]
-ignore = [
-    "CPY",
-    "PLR",
-    "COM812",
-    "ERA001",
-]
 fixable = ["ALL"]
 unfixable = []
 

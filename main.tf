@@ -68,12 +68,9 @@ resource "docker_container" "mlflow" {
     host_path      = "${path.cwd}/mlflow/mlflow.db"
   }
 
-  working_dir = "/mlflow"
-
   command = [
     "mlflow", "server",
     "--backend-store-uri", "sqlite:///mlflow.db",
-    "--default-artifact-root", "file:///mlflow/mlruns",
     "--host", "0.0.0.0",
     "--port", "5000"
   ]
@@ -126,7 +123,8 @@ resource "docker_container" "airflow_server" {
     "AIRFLOW__CORE__LOAD_EXAMPLES=false",
     "AIRFLOW__DAGS__ARE_PAUSED_AT_CREATION=false",
     "KAGGLE_USERNAME=${var.kaggle_username}",
-    "KAGGLE_KEY=${var.kaggle_key}"
+    "KAGGLE_KEY=${var.kaggle_key}",
+    "MLFLOW_TRACKING_URI=http://mlflow-server:5000",
   ]
 
   command = ["airflow", "standalone"]
@@ -155,7 +153,7 @@ resource "docker_image" "airflow" {
   # Force rebuild when dependencies change
   triggers = {
     dockerfile = filemd5("Dockerfile.airflow")
-    requirements = filemd5("requirements.txt")
+    requirements = filemd5("requirements.airflow.txt")
     source = filemd5("pyproject.toml")
   }
 }

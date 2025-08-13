@@ -17,3 +17,32 @@ class DatasetSize(StrEnum):
 class DatasetSplit(StrEnum):
     TRAIN = "train"
     TEST = "test"
+
+
+CATEGORICAL_FEATURES = [
+    "Gender",
+    "Married",
+    "Contract",
+    "Payment Method",
+    "Offer",
+    "Phone Service",
+    "Multiple Lines",
+    "Internet Service",
+    "Online Security",
+    "Online Backup",
+    "Device Protection Plan",
+    "Premium Tech Support",
+    "Streaming TV",
+    "Streaming Movies",
+    "Streaming Music",
+    "Unlimited Data",
+    "Paperless Billing",
+]
+
+ORDINAL_FEATURES = [
+    "Age Rank",
+    "Tenure Rank",
+    "Dependents Rank",
+    "Referrals Rank",
+]
+TARGET_VARIABLE = "Churn Status"

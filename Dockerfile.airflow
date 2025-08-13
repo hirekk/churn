@@ -2,7 +2,7 @@ FROM apache/airflow:slim-3.0.4-python3.12
 
 WORKDIR /opt/airflow
 
-COPY pyproject.toml requirements.txt ./
+COPY pyproject.toml requirements.airflow.txt ./
 
 USER root
 RUN apt-get update && apt-get install -y \
@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 USER airflow
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.airflow.txt
 
 COPY . /tmp/package
 WORKDIR /tmp/package

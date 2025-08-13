@@ -4,82 +4,74 @@ A complete machine learning pipeline for predicting telecom customer churn using
 
 ## 📋 Prerequisites
 
-Before you begin, ensure you have the following installed:
-
 - **Docker** - [Install Docker](https://docs.docker.com/get-docker/)
 - **Terraform** - [Install Terraform](https://developer.hashicorp.com/terraform/downloads)
 - **Kaggle API credentials** - [Get your Kaggle API key](https://github.com/Kaggle/kaggle-api#api-credentials)
 
 ## 🚀 Quick Start
 
-### 1. Clone and Setup
+### 1. Setup and Deploy Infrastructure
 
 ```bash
+# Clone and setup
 git clone git@github.com:hirekk/churn.git
 cd churn
-```
 
-### 2. Configure Kaggle Credentials
-
-Create a `terraform.tfvars` file with your Kaggle credentials:
-
-```bash
-# Create terraform.tfvars
+# Configure Kaggle credentials
 cat > terraform.tfvars << EOF
 kaggle_username = "your_kaggle_username"
 kaggle_key = "your_kaggle_api_key"
 EOF
-```
 
-### 3. Deploy Infrastructure
-
-```bash
-# Initialize Terraform
+# Deploy infrastructure
 terraform init
-
-# Deploy all services
 terraform apply -auto-approve
 ```
 
-This will start:
+This starts:
 - **Airflow** server on port 8081
 - **MLflow** tracking server on port 5002
 - **Local Docker registry** on port 5003
 
-### 4. Get Airflow Admin Password
+### 2. Get Airflow Admin Password
 
 ```bash
-# Extract admin password from container logs
 docker logs airflow-server | grep "Admin user" | tail -1
 ```
 
-### 5. Access the Services
+### 3. Access Services
 
-- **Airflow UI**: http://localhost:8081
-  - Username: `admin`
-  - Password: (from step 4)
-
+- **Airflow UI**: http://localhost:8081 (admin / password from step 2)
 - **MLflow UI**: http://localhost:5002
 
-### 6. Run the Training Pipeline
+### 4. Train Model
 
-1. **Open Airflow UI** in your browser
-2. **Go to DAGs** → find `model_training`
-3. **Click "Play" button** to trigger the pipeline
-4. **Monitor execution** in the DAG view
+1. **Open Airflow UI** → find `model_training` DAG
+2. **Click "Play" button** to trigger training
+3. **Monitor execution** in DAG view
+4. **Note the Run ID** from the successful training run
 
 The pipeline will:
 - Download telecom customer churn dataset from Kaggle
 - Apply feature engineering
-- Train a Random Forest model
-- Save the model to `models/random_forest/`
+- Train a Random Forest model with preprocessing pipeline
+- Save the model to `models/random_forest/{run_id}`
 - Log everything to MLflow
 
-### 7. View Results
+### 5. Deploy Prediction API
 
-- **Check MLflow UI** for experiment tracking and model artifacts
-- **Verify model files** in `models/random_forest/` directory
-- **Review training logs** in Airflow task logs
+**Important**: Wait for training to complete and note the Run ID before deploying the API.
+
+```bash
+# Deploy API with specific trained model
+make deploy RUN_ID="your_run_id_here"
+
+# Check health
+make check
+
+# Test predictions
+make test
+```
 
 ## 🏗️ Architecture
 
@@ -102,50 +94,95 @@ The pipeline will:
 churn/
 ├── airflow/                 # Airflow configuration
 │   ├── dags/              # DAG definitions
-│   ├── logs/              # Airflow logs
-│   └── airflow.db         # Airflow database
+│   └── logs/              # Airflow logs
 ├── data/                   # Data storage
 │   ├── raw/               # Raw downloaded data
 │   ├── interim/           # Intermediate processed data
 │   └── processed/         # ML-ready features
 ├── models/                 # Trained models
-│   └── random_forest/     # Random Forest model files
+│   └── random_forest/     # Model files by run ID
 ├── mlflow/                 # MLflow artifacts
-│   ├── mlruns/            # Experiment runs
-│   └── mlflow.db          # MLflow database
 ├── src/                    # Source code
 │   └── churn/             # Main package
-├── main.tf                 # Terraform configuration
-└── README.md               # This file
+└── main.tf                 # Terraform configuration
 ```
 
-## 🔧 Configuration
+## 🚀 Deploy Prediction API
 
-### Environment Variables
+### Option 1: Using Makefile (Recommended)
+
+```bash
+# Deploy API with specific model
+make deploy RUN_ID="your_run_id_here"
+
+# Check health
+make check
+
+# Test predictions
+make test
+
+# Stop service
+make down
+
+# Clean up everything
+make clean
+```
+
+### Option 2: Manual Docker Commands
+
+```bash
+# Build and run with specific model
+docker build --build-arg RUN_ID="your_run_id" -f Dockerfile.api -t churn-api:latest .
+docker run -d --name churn-api -p 8000:8000 churn-api:latest
+
+# Test
+curl http://localhost:8000/health
+curl http://localhost:8000/docs
+```
+
+## 🧪 API Testing
+
+### Health Check
+```bash
+curl http://localhost:8000/health
+```
+
+### Make Prediction
+```bash
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "age": 45,
+    "gender": "Male",
+    "married": "Yes",
+    "tenure_in_months": 24,
+    "monthly_charge": 89.99
+  }'
+```
+
+**Note**: This is a minimal example. The full API expects all customer fields. See the Makefile test target for a complete example.
+
+### API Documentation
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+## 🔧 Configuration
 
 | Service | Port | Purpose |
 |---------|------|---------|
 | Airflow | 8081 | Web UI and API |
 | MLflow | 5002 | Experiment tracking |
 | Registry | 5003 | Docker image storage |
-
-### Volume Mounts
-
-| Container Path | Host Path | Purpose |
-|----------------|-----------|---------|
-| `/opt/airflow/dags` | `./airflow/dags` | DAG definitions |
-| `/opt/airflow/data` | `./data` | Data storage |
-| `/opt/airflow/models` | `./models` | Model storage |
-| `/mlflow/mlruns` | `./mlflow/mlruns` | MLflow artifacts |
+| API | 8000 | Prediction endpoint |
 
 ## 🚨 Troubleshooting
 
 ### Common Issues
 
-1. **Port conflicts**: Ensure ports 8081, 5002, 5003 are available
+1. **Port conflicts**: Ensure ports 8081, 5002, 5003, 8000 are available
 2. **Kaggle credentials**: Verify your API key is correct
 3. **Docker not running**: Start Docker before running Terraform
-4. **Permission errors**: Ensure Docker has access to your project directory
+4. **API deployment before training**: Ensure training completes and you have a valid RUN_ID
 
 ### Debug Commands
 
@@ -153,32 +190,35 @@ churn/
 # Check container status
 docker ps
 
-# View container logs
+# View logs
 docker logs airflow-server
-docker logs mlflow-server
+docker logs churn-api
+
+# Check model files
+ls -la models/random_forest/
 
 # Restart services
 terraform destroy -auto-approve
 terraform apply -auto-approve
 ```
 
+## 🔄 Model Updates
+
+To deploy a new model version:
+
+1. **Train new model** using Airflow
+2. **Get the new Run ID** from MLflow or Airflow logs
+3. **Redeploy API** with new model:
+   ```bash
+   make clean
+   make deploy RUN_ID="new_run_id"
+   ```
+
 ## 📚 Next Steps
 
-- **API Deployment**: Deploy the prediction API (coming soon)
-- **Model Monitoring**: Set up model performance monitoring
+- **Model Monitoring**: Set up performance monitoring
 - **CI/CD Pipeline**: Automate model retraining
 - **Production Deployment**: Scale to production environment
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 

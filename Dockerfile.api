@@ -1,39 +1,46 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Set working directory
+# Accept run_id as build argument
+ARG RUN_ID=latest
+
 WORKDIR /app
 
-# Set environment variables
-ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
-ENV MODEL_PATH=/app/models/random_forest
+ENV MODEL_PATH=/app/model
+ENV PORT=8000
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.api.txt .
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.api.txt
-
-# Copy application code
+# Copy package files first
+COPY pyproject.toml .
+COPY README.md .
 COPY src/ /app/src/
+
+# Install dependencies and package
+COPY requirements.api.txt .
+RUN pip install --no-cache-dir -r requirements.api.txt
+RUN pip install -e .
+
+# Copy models directory
 COPY models/ /app/models/
 
-# Create models directory if it doesn't exist
-RUN mkdir -p /app/models
+# Link specific model or fall back to latest
+RUN if [ -d "models/random_forest" ] && [ "$(ls -A models/random_forest)" ]; then \
+        if [ "$RUN_ID" != "latest" ] && [ -d "models/random_forest/$RUN_ID" ]; then \
+            ln -sf models/random_forest/$RUN_ID /app/model; \
+            echo "Linked specific model: $RUN_ID"; \
+        else \
+            latest_model=$(ls -t models/random_forest/ | head -1); \
+            ln -sf models/random_forest/$latest_model /app/model; \
+            echo "Linked latest model: $latest_model"; \
+        fi; \
+    fi
 
-# Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
-CMD ["uvicorn", "src.churn.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "churn.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

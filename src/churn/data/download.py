@@ -17,7 +17,15 @@ def should_download_dataset(
     data_dirpath: Path,
     logger: logging.Logger = DEFAULT_LOGGER,
 ) -> bool:
-    """Check if dataset download is needed."""
+    """Check if dataset download is needed.
+
+    Args:
+        data_dirpath: Path to data directory
+        logger: Logger instance
+
+    Returns:
+        True if dataset download is needed, False otherwise
+    """
     missing_files = [
         str(file.absolute())
         for file in [
@@ -70,7 +78,15 @@ def download_dataset(
     data_dirpath: Path,
     logger: logging.Logger = DEFAULT_LOGGER,
 ) -> Path:
-    """Download dataset from Kaggle."""
+    """Download dataset from Kaggle.
+
+    Args:
+        data_dirpath: Path to data directory
+        logger: Logger instance
+
+    Returns:
+        Path to downloaded dataset
+    """
     if not should_download_dataset(data_dirpath, logger):
         return data_dirpath / f"{DataFile.CUSTOMER_CHURN.value}.csv"
 

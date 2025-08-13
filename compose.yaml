@@ -1,0 +1,26 @@
+services:
+  churn-prediction:
+    image: localhost:5003/churn-prediction:latest
+    container_name: churn-prediction
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_PATH=/app/model
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - churn-network
+
+networks:
+  churn-network:
+    external: true

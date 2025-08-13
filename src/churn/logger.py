@@ -3,6 +3,7 @@
 import logging
 import os
 from pathlib import Path
+import sys
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
@@ -22,25 +23,19 @@ def setup_logging(
     Returns:
         Configured logger
     """
-    # Create logger
     logger = logging.getLogger(__name__)
     logger.setLevel(level)
 
-    # Clear existing handlers to avoid duplicates
     logger.handlers.clear()
 
-    # Create formatter
     formatter = logging.Formatter(log_format)
 
-    # Console handler (stdout)
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
-    # File handler (if specified)
     if log_file:
-        # Create log directory if it doesn't exist
         Path(log_file).parent.mkdir(parents=True, exist_ok=True)
 
         file_handler = logging.FileHandler(log_file)
